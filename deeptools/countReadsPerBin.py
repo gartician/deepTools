@@ -295,7 +295,7 @@ class CountReadsPerBin(object):
             chunkSize = 10000 * self.binLength
             self.stepSize = self.binLength
         else:
-            reads_per_bp = float(max_mapped) / genomeSize
+            reads_per_bp = float(max_mapped) / genomeSize ### max mapped reads / genome size 
             chunkSize = int(self.stepSize * 1e3 / (reads_per_bp * len(bamFilesHandles)))
 
         # Ensure that chunkSize is always at least self.stepSize
@@ -309,6 +309,7 @@ class CountReadsPerBin(object):
         return chunkSize
 
     def run(self, allArgs=None):
+        ### Open all bam files list.
         bamFilesHandles = []
         for x in self.bamFilesList:
             try:
@@ -353,6 +354,9 @@ class CountReadsPerBin(object):
         transcriptID, exonID, transcript_id_designator, keepExons = deeptools.utilities.gtfOptions(allArgs)
 
         # use map reduce to call countReadsInRegions_wrapper
+        ### purpose of mapReduce is to apply the countReadsInRegions_wrapper function with multiprocessing
+        ### countReadsInRegions_wrapper used to invoke the cr.count_reads_in_region function in accordance to multiprocessing module.
+        ### this will generate intermediate bedgraph files, which will be concatenated together.
         imap_res = mapReduce.mapReduce([],
                                        countReadsInRegions_wrapper,
                                        chromsizes,
@@ -396,6 +400,8 @@ class CountReadsPerBin(object):
             else:
                 sys.exit('\nNo coverage values could be computed.\n\nCheck that all bam files are valid and '
                          'contain mapped reads.')
+
+### The mechanism of how reads are count are below (count_reads_in_region, get_coverage_of_region), both of which are not so important to understand how normalization works.
 
     def count_reads_in_region(self, chrom, start, end, bed_regions_list=None):
         """Counts the reads in each bam file at each 'stepSize' position
@@ -496,15 +502,17 @@ class CountReadsPerBin(object):
         else:
             _file_name = ''
 
+        ### so this works in serial???
         for bam in bam_handles:
             for trans in transcriptsToConsider:
-                tcov = self.get_coverage_of_region(bam, chrom, trans)
+                tcov = self.get_coverage_of_region(bam, chrom, trans) ### Loop over each bam at each intervals, get the coverage.
                 if bed_regions_list is not None and not self.bed_and_bin:
                     subnum_reads_per_bin.append(np.sum(tcov))
                 else:
                     subnum_reads_per_bin.extend(tcov)
 
         subnum_reads_per_bin = np.concatenate([subnum_reads_per_bin]).reshape(-1, len(self.bamFilesList), order='F')
+        ### Concatenate all intervals and samples into np array. List of coverage is in subnum_reads_per_bin var.
 
         if self.save_data:
             idx = 0

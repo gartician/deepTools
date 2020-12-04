@@ -28,6 +28,7 @@ def writeBedGraph_wrapper(args):
 
 
 class WriteBedGraph(cr.CountReadsPerBin):
+    ### WriteBedGraph(cr.CountReadsPerBin) -- means WriteBedGraph is object that extends upon the CountReadsPerBin object. https://stackoverflow.com/questions/4015417/python-class-inherits-object
 
     r"""Reads bam files coverages and writes a bedgraph or bigwig file
 
@@ -118,6 +119,7 @@ class WriteBedGraph(cr.CountReadsPerBin):
         """
         self.__dict__["smoothLength"] = smoothLength
         getStats = len(self.mappedList) < len(self.bamFilesList)
+        ### Load all bam handles
         bam_handles = []
         for x in self.bamFilesList:
             if getStats:
@@ -142,6 +144,7 @@ class WriteBedGraph(cr.CountReadsPerBin):
                 continue
             sys.stderr.write("{}: {}\n".format(x, self.__getattribute__(x)))
 
+        ### call writeBedGraph_worker which will calculate + smooth coverage across multiple threads. 
         res = mapReduce.mapReduce([func_to_call, func_args],
                                   writeBedGraph_wrapper,
                                   chrom_names_and_size,
@@ -151,13 +154,13 @@ class WriteBedGraph(cr.CountReadsPerBin):
                                   blackListFileName=blackListFileName,
                                   numberOfProcessors=self.numberOfProcessors)
 
-        # Determine the sorted order of the temp files
+        # Determine the sorted order of the temp filesfile
         chrom_order = dict()
         for i, _ in enumerate(chrom_names_and_size):
             chrom_order[_[0]] = i
         res = [[chrom_order[x[0]], x[1], x[2], x[3]] for x in res]
         res.sort()
-
+        
         if format == 'bedgraph':
             out_file = open(out_file_name, 'wb')
             for r in res:
@@ -169,7 +172,8 @@ class WriteBedGraph(cr.CountReadsPerBin):
             out_file.close()
         else:
             bedGraphToBigWig(chrom_names_and_size, [x[3] for x in res], out_file_name)
-
+            ### aggreagate bedgraph files into bigwig file.
+ 
     def writeBedGraph_worker(self, chrom, start, end,
                              func_to_call, func_args,
                              bed_regions_list=None):
@@ -228,9 +232,9 @@ class WriteBedGraph(cr.CountReadsPerBin):
             raise NameError("start position ({0}) bigger "
                             "than end position ({1})".format(start, end))
 
-        coverage, _ = self.count_reads_in_region(chrom, start, end)
+        coverage, _ = self.count_reads_in_region(chrom, start, end) ### calculate the coverage in each bam file at each stepSize
 
-        _file = open(utilities.getTempFileName(suffix='.bg'), 'w')
+        _file = open(utilities.getTempFileName(suffix='.bg'), 'w') ### open a bedgraph file to write to.
         previous_value = None
         line_string = "{}\t{}\t{}\t{:g}\n"
         for tileIndex in range(coverage.shape[0]):
@@ -300,7 +304,7 @@ def bedGraphToBigWig(chromSizes, bedGraphFiles, bigWigPath):
             f = open(bg)
             for line in f:
                 interval = line.split()
-                # Buffer up to a million entries
+                # Buffer up to a million entries ### aka load 1 M entries into memory before adding to final bigwig
                 if interval[0] != lastChrom or len(starts) == 1000000:
                     if lastChrom is not None:
                         bw.addEntries([lastChrom] * len(starts), starts, ends=ends, values=vals)

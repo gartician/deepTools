@@ -68,7 +68,7 @@ def get_optional_args():
     optional.add_argument('--scaleFactor',
                           help='The computed scaling factor (or 1, if not applicable) will '
                           'be multiplied by this. (Default: %(default)s)',
-                          default=1.0,
+                          default=1.0, ### if scaleFactor is not set, the libraries won't normalize by depth!
                           type=float,
                           required=False)
 
@@ -159,9 +159,10 @@ def main(args=None):
         # if a normalization is required then compute the scale factors
         bam, mapped, unmapped, stats = openBam(args.bam, returnStats=True, nThreads=args.numberOfProcessors)
         bam.close()
-        scale_factor = get_scale_factor(args, stats)
+        scale_factor = get_scale_factor(args, stats) ### function in getScaleFactor.py
     else:
         scale_factor = args.scaleFactor
+    ### calculate the scaling factor, otherwise use user's argument. by default, does not scale (scale_factor is 1.0)
 
     func_args = {'scaleFactor': scale_factor}
 
@@ -234,6 +235,9 @@ def main(args=None):
         wr.filter_strand = args.filterRNAstrand
         wr.Offset = args.Offset
     else:
+    ### relevant code since we don't use mnase or offset.
+    ### initiate writeBedGraph class object with user-provided arguments.
+    ### writeBedGraph inherits from countReadsPerBin(.py) object.
         wr = writeBedGraph.WriteBedGraph([args.bam],
                                          binLength=args.binSize,
                                          stepSize=args.binSize,
@@ -252,7 +256,10 @@ def main(args=None):
                                          chrsToSkip=args.ignoreForNormalization,
                                          verbose=args.verbose,
                                          )
-
+    ### utilize the run method in writeBedGraph class.
+    ### func_args is the scale factor dictionary.
+    ### writeBedGraph.scaleCoverage is default function to call
+    ### bamCoverage.py --> writeBedGraph.py
     wr.run(writeBedGraph.scaleCoverage, func_args, args.outFileName,
            blackListFileName=args.blackListFileName,
            format=args.outFileFormat, smoothLength=args.smoothLength)
